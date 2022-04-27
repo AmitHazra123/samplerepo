@@ -12,13 +12,26 @@
     <div id="input">
         <input type="text" />
     </div>
-    <script>
-        fetch('https://github.com/AmitHazra123/samplerepo/blob/main/load-balancer.yml').then(res => res.text()).then(text => {
+    <script type="module">
+        import { Octokit } from "https://cdn.skypack.dev/@octokit/core";
+        let octokit = new Octokit({ auth: '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' });
+        octokit.request('GET /repos/AmitHazra123/samplerepo/contents/load-balancer.yml', {
+            owner: "AmitHazra123",
+            repo: "samplerepo",
+            path: "/load-balancer.yml"
+        }).then(res => {
+            let data = res.data;
+            let content = data.content;
+            let encoding = data.encoding;
+            let file = atob(content);
+            return file;
+        }).then(text => {
             const file = YAML.stringify(YAML.parse(text));
             const obj = YAML.parse(file);
             let data = obj;
             document.getElementById("data").innerHTML = JSON.stringify(data, null, 4);
-        }).catch();
+        })
+        .catch();
     </script>
 </body>
 </html>
