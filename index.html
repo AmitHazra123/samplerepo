@@ -5,8 +5,20 @@
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Load Balancer</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/yamljs/0.3.0/yaml.min.js" integrity="sha512-f/K0Q5lZ1SrdNdjc2BO2I5kTx8E5Uw1EU3PhSUB9fYPohap5rPWEmQRCjtpDxNmQB4/+MMI/Cf+nvh1VSiwrTA==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 </head>
 <body>
-  hello
+    <pre id="data" style="background-color: rgb(164, 164, 164); color:black; font-size: 1rem; font-weight: bold;"></pre>
+    <div id="input">
+        <input type="text" />
+    </div>
+    <script>
+        fetch('http://localhost:5500/load-balancer.yml').then(res => res.text()).then(text => {
+            const file = YAML.stringify(YAML.parse(text));
+            const obj = YAML.parse(file);
+            let data = obj;
+            document.getElementById("data").innerHTML = JSON.stringify(data, null, 4);
+        }).catch();
+    </script>
 </body>
 </html>
