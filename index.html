@@ -7,31 +7,115 @@
     <title>Load Balancer</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/yamljs/0.3.0/yaml.min.js" integrity="sha512-f/K0Q5lZ1SrdNdjc2BO2I5kTx8E5Uw1EU3PhSUB9fYPohap5rPWEmQRCjtpDxNmQB4/+MMI/Cf+nvh1VSiwrTA==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 </head>
-<body>
+<body onload="fetchContent();">
     <pre id="data" style="background-color: rgb(164, 164, 164); color:black; font-size: 1rem; font-weight: bold;"></pre>
-    <div id="input">
-        <input type="text" />
-    </div>
+    <button onclick="updateConfig();">Save</button>
+
     <script type="module">
+        
+        console.log(process.env);
+        
         import { Octokit } from "https://cdn.skypack.dev/@octokit/core";
-        let octokit = new Octokit();
-        octokit.request('GET /repos/AmitHazra123/samplerepo/contents/load-balancer.yml', {
-            owner: "AmitHazra123",
-            repo: "samplerepo",
-            path: "/load-balancer.yml"
-        }).then(res => {
-            let data = res.data;
-            let content = data.content;
-            let encoding = data.encoding;
-            let file = atob(content);
-            return file;
-        }).then(text => {
-            const file = YAML.stringify(YAML.parse(text));
-            const obj = YAML.parse(file);
-            let data = obj;
-            document.getElementById("data").innerHTML = JSON.stringify(data, null, 4);
-        })
-        .catch();
+        let octokit = new Octokit({ auth: "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" });
+        
+        window.fetchContent = function() {
+            octokit.request('GET /repos/AmitHazra123/samplerepo/contents/load-balancer.yml', {
+                owner: "AmitHazra123",
+                repo: "samplerepo",
+                path: "/load-balancer.yml"
+            }).then(res => {
+                let data = res.data;
+                window.sha = data.sha;
+                let content = data.content;
+                let file_content = atob(content);
+                return file_content;
+            }).then(file_content => {
+                const yaml = YAML.stringify(YAML.parse(file_content));
+                const json = YAML.parse(yaml);
+                const forwardConfig = JSON.parse(json["metadata"]["annotations"]["alb.ingress.kubernetes.io/actions.forward-multiple-tg"])["forwardConfig"];
+                
+                forwardConfig.targetGroups.forEach((oTargetGroup, index) => {
+                    Object.keys(oTargetGroup).forEach(sKey => {
+                        const sType = typeof oTargetGroup[sKey];
+                        oTargetGroup[sKey] = `<input id='targetGroups-${index.toString()}-${sKey}' stype=${sType} style='font-size:1rem; font-weight:bold' type=${sType} value=${oTargetGroup[sKey]} />`;
+                    });
+                });
+                Object.keys(forwardConfig["targetGroupStickinessConfig"]).forEach(sKey => {
+                    const sType = typeof forwardConfig["targetGroupStickinessConfig"][sKey];
+                    forwardConfig["targetGroupStickinessConfig"][sKey] = `<input id='targetGroupStickinessConfig-${sKey}' stype=${sType} style='font-size:1rem; font-weight:bold' type=${sType} value=${forwardConfig["targetGroupStickinessConfig"][sKey]} />`;
+                });
+                
+                let data = {};
+                data["metadata"] = {};
+                data["metadata"]["annotations"] = {};
+                data["metadata"]["annotations"]["alb.ingress.kubernetes.io/actions.forward-multiple-tg"] = JSON.parse(json["metadata"]["annotations"]["alb.ingress.kubernetes.io/actions.forward-multiple-tg"]);
+                data["metadata"]["annotations"]["alb.ingress.kubernetes.io/actions.forward-multiple-tg"]["forwardConfig"] = forwardConfig;
+                
+                document.getElementById("data").innerHTML = JSON.stringify(data, null, 2);
+
+                window.yaml = yaml;
+            })
+            .catch(oError => {
+                console.log(oError);
+                alert("Failed to fetch the content!");
+            });
+        }
+
+        window.updateConfig = function() {
+            const json = JSON.parse(document.getElementById("data").innerText);
+            const forwardConfig = json["metadata"]["annotations"]["alb.ingress.kubernetes.io/actions.forward-multiple-tg"]["forwardConfig"];
+            const updatedForwardConfig = JSON.parse(JSON.stringify(forwardConfig));
+
+            updatedForwardConfig.targetGroups.forEach((oTargetGroup, index) => {
+                Object.keys(oTargetGroup).forEach(sKey => {
+                    let element = document.getElementById(`targetGroups-${index}-${sKey}`);
+                    let type = element.attributes.stype.value;
+                    let value = element.value;
+                    type === "string" && (value = value.toString());
+                    type === "number" && (value = parseInt(value));
+                    oTargetGroup[sKey] = value;
+                });
+            });
+            Object.keys(updatedForwardConfig["targetGroupStickinessConfig"]).forEach(sKey => {
+                let element = document.getElementById(`targetGroupStickinessConfig-${sKey}`);
+                let type = element.attributes.stype.value;
+                let value = element.value;
+                type === "string" && (value = value.toString());
+                type === "number" && (value = parseInt(value));
+                type === "boolean" && (value = value === 'true');
+                updatedForwardConfig["targetGroupStickinessConfig"][sKey] = value;
+            });
+            
+            let updatedJson = YAML.parse(window.yaml);
+            let temp = updatedJson["metadata"]["annotations"]["alb.ingress.kubernetes.io/actions.forward-multiple-tg"];
+            temp = JSON.parse(temp);
+            temp["forwardConfig"] = updatedForwardConfig;
+            updatedJson["metadata"]["annotations"]["alb.ingress.kubernetes.io/actions.forward-multiple-tg"] = JSON.stringify(temp);
+
+            const updatedYaml = YAML.dump(updatedJson);
+            const encodedYaml = btoa(updatedYaml);
+            
+            octokit.request('PUT /repos/AmitHazra123/samplerepo/contents/load-balancer.yml', {
+                owner: "AmitHazra123",
+                repo: "samplerepo",
+                path: "/load-balancer.yml",
+                message: 'my commit message',
+                committer: {
+                    name: 'Amit Hazra',
+                    email: 'shivahazra@gmail.com'
+                },
+                content: encodedYaml,
+                sha: window.sha
+            }).then(res => {
+                window.sha = res.data.content.sha;
+                alert("Updated Successfull!");
+            }).catch(oError => {
+                console.log(oError);
+                alert("Update failed!");
+            });
+
+        }
+
     </script>
 </body>
 </html>
