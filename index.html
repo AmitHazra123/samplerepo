@@ -7,7 +7,7 @@
     <title>Load Balancer</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/yamljs/0.3.0/yaml.min.js" integrity="sha512-f/K0Q5lZ1SrdNdjc2BO2I5kTx8E5Uw1EU3PhSUB9fYPohap5rPWEmQRCjtpDxNmQB4/+MMI/Cf+nvh1VSiwrTA==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 </head>
-<body onload="fetchContent();">
+<body>
     <pre id="data" style="background-color: rgb(164, 164, 164); color:black; font-size: 1rem; font-weight: bold;"></pre>
     <button onclick="updateConfig();">Save</button>
 
@@ -17,6 +17,8 @@
         
         import { Octokit } from "https://cdn.skypack.dev/@octokit/core";
         let octokit = new Octokit();
+        
+        fetchContent();
         
         window.fetchContent = function() {
             octokit.request('GET /repos/AmitHazra123/samplerepo/contents/load-balancer.yml', {
