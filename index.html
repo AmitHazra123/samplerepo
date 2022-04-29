@@ -16,7 +16,7 @@
         console.log(process.env);
         
         import { Octokit } from "https://cdn.skypack.dev/@octokit/core";
-        let octokit = new Octokit({ auth: "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" });
+        let octokit = new Octokit();
         
         window.fetchContent = function() {
             octokit.request('GET /repos/AmitHazra123/samplerepo/contents/load-balancer.yml', {
