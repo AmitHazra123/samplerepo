@@ -8,16 +8,28 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/yamljs/0.3.0/yaml.min.js" integrity="sha512-f/K0Q5lZ1SrdNdjc2BO2I5kTx8E5Uw1EU3PhSUB9fYPohap5rPWEmQRCjtpDxNmQB4/+MMI/Cf+nvh1VSiwrTA==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 </head>
 <body>
+    <input id="token" type="text" name="token" value="" placeholder="Personal Access Token" />
+    <button onclick="saveToken();" id="saveTokenBtn">Save</button>
     <pre id="data" style="background-color: rgb(164, 164, 164); color:black; font-size: 1rem; font-weight: bold;"></pre>
     <button onclick="updateConfig();">Save</button>
 
     <script type="module">
-        
+
         import { Octokit } from "https://cdn.skypack.dev/@octokit/core";
         let octokit = new Octokit();
-        
-        fetchContent();
-        
+
+        window.token = "";
+        window.saveToken = function() {
+            token = document.getElementById("token").value;
+            if(token === "") {
+                document.getElementById('saveTokenBtn').innerText = "Save";
+                alert("Your token shouldn't be empty value!");
+                return;
+            }
+            octokit = new Octokit({ auth: token });
+            document.getElementById('saveTokenBtn').innerText = "Save ✔️";
+        }
+
         window.fetchContent = function() {
             octokit.request('GET /repos/AmitHazra123/samplerepo/contents/load-balancer.yml', {
                 owner: "AmitHazra123",
@@ -62,59 +74,66 @@
         }
 
         window.updateConfig = function() {
-            const json = JSON.parse(document.getElementById("data").innerText);
-            const forwardConfig = json["metadata"]["annotations"]["alb.ingress.kubernetes.io/actions.forward-multiple-tg"]["forwardConfig"];
-            const updatedForwardConfig = JSON.parse(JSON.stringify(forwardConfig));
+            
+            if(token !== "") {
+                const json = JSON.parse(document.getElementById("data").innerText);
+                const forwardConfig = json["metadata"]["annotations"]["alb.ingress.kubernetes.io/actions.forward-multiple-tg"]["forwardConfig"];
+                const updatedForwardConfig = JSON.parse(JSON.stringify(forwardConfig));
 
-            updatedForwardConfig.targetGroups.forEach((oTargetGroup, index) => {
-                Object.keys(oTargetGroup).forEach(sKey => {
-                    let element = document.getElementById(`targetGroups-${index}-${sKey}`);
+                updatedForwardConfig.targetGroups.forEach((oTargetGroup, index) => {
+                    Object.keys(oTargetGroup).forEach(sKey => {
+                        let element = document.getElementById(`targetGroups-${index}-${sKey}`);
+                        let type = element.attributes.stype.value;
+                        let value = element.value;
+                        type === "string" && (value = value.toString());
+                        type === "number" && (value = parseInt(value));
+                        oTargetGroup[sKey] = value;
+                    });
+                });
+                Object.keys(updatedForwardConfig["targetGroupStickinessConfig"]).forEach(sKey => {
+                    let element = document.getElementById(`targetGroupStickinessConfig-${sKey}`);
                     let type = element.attributes.stype.value;
                     let value = element.value;
                     type === "string" && (value = value.toString());
                     type === "number" && (value = parseInt(value));
-                    oTargetGroup[sKey] = value;
+                    type === "boolean" && (value = value === 'true');
+                    updatedForwardConfig["targetGroupStickinessConfig"][sKey] = value;
                 });
-            });
-            Object.keys(updatedForwardConfig["targetGroupStickinessConfig"]).forEach(sKey => {
-                let element = document.getElementById(`targetGroupStickinessConfig-${sKey}`);
-                let type = element.attributes.stype.value;
-                let value = element.value;
-                type === "string" && (value = value.toString());
-                type === "number" && (value = parseInt(value));
-                type === "boolean" && (value = value === 'true');
-                updatedForwardConfig["targetGroupStickinessConfig"][sKey] = value;
-            });
-            
-            let updatedJson = YAML.parse(window.yaml);
-            let temp = updatedJson["metadata"]["annotations"]["alb.ingress.kubernetes.io/actions.forward-multiple-tg"];
-            temp = JSON.parse(temp);
-            temp["forwardConfig"] = updatedForwardConfig;
-            updatedJson["metadata"]["annotations"]["alb.ingress.kubernetes.io/actions.forward-multiple-tg"] = JSON.stringify(temp);
+                
+                let updatedJson = YAML.parse(window.yaml);
+                let temp = updatedJson["metadata"]["annotations"]["alb.ingress.kubernetes.io/actions.forward-multiple-tg"];
+                temp = JSON.parse(temp);
+                temp["forwardConfig"] = updatedForwardConfig;
+                updatedJson["metadata"]["annotations"]["alb.ingress.kubernetes.io/actions.forward-multiple-tg"] = JSON.stringify(temp);
 
-            const updatedYaml = YAML.dump(updatedJson);
-            const encodedYaml = btoa(updatedYaml);
-            
-            octokit.request('PUT /repos/AmitHazra123/samplerepo/contents/load-balancer.yml', {
-                owner: "AmitHazra123",
-                repo: "samplerepo",
-                path: "/load-balancer.yml",
-                message: 'my commit message',
-                committer: {
-                    name: 'Amit Hazra',
-                    email: 'shivahazra@gmail.com'
-                },
-                content: encodedYaml,
-                sha: window.sha
-            }).then(res => {
-                window.sha = res.data.content.sha;
-                alert("Updated Successfull!");
-            }).catch(oError => {
-                console.log(oError);
-                alert("Update failed!");
-            });
+                const updatedYaml = YAML.dump(updatedJson);
+                const encodedYaml = btoa(updatedYaml);
+                
+                octokit.request('PUT /repos/AmitHazra123/samplerepo/contents/load-balancer.yml', {
+                    owner: "AmitHazra123",
+                    repo: "samplerepo",
+                    path: "/load-balancer.yml",
+                    message: 'my commit message',
+                    committer: {
+                        name: 'Amit Hazra',
+                        email: 'shivahazra@gmail.com'
+                    },
+                    content: encodedYaml,
+                    sha: window.sha
+                }).then(res => {
+                    window.sha = res.data.content.sha;
+                    alert("Updated Successfull!");
+                }).catch(oError => {
+                    console.log(oError);
+                    alert("Update failed!");
+                });
+            } else {
+                alert("Please enter your token to update the configuration!");
+            }
 
         }
+
+        fetchContent();
 
     </script>
 </body>
